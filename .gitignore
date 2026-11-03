@@ -1,0 +1,13 @@
+# Executables & Binaries
+*.exe
+*.o
+*.obj
+
+# Python caches
+__pycache__/
+*.pyc
+
+# OS & Logs
+*.log
+.DS_Store
+Thumbs.db
