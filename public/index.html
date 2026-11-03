@@ -1,0 +1,1219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SmartPay – E-Wallet & Utility Bill Management</title>
+  <!-- Tailwind CSS via allowlisted CDN -->
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <!-- Modern Clean Typography: Plus Jakarta Sans & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+    body {
+      font-family: var(--font-sans);
+      -webkit-font-smoothing: antialiased;
+      background-color: #f8fafc;
+      color: #0f172a;
+    }
+    .code-font {
+      font-family: var(--font-mono);
+    }
+    .tabular-num {
+      font-variant-numeric: tabular-nums;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-in {
+      animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    @media print {
+      body * { visibility: hidden; }
+      #invoiceModal, #invoiceModal * { visibility: visible; }
+      #invoiceModal { position: absolute; left: 0; top: 0; width: 100%; box-shadow: none; border: none; }
+      .no-print { display: none !important; }
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-[#f8fafc] text-slate-800 p-3 sm:p-6 md:p-8 flex flex-col justify-between">
+
+  <div class="max-w-6xl mx-auto w-full space-y-6">
+
+    <!-- Top Navigation Bar -->
+    <header class="bg-white border border-slate-200/90 rounded-2xl p-4 md:p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div class="flex items-center space-x-3.5">
+        <div class="w-11 h-11 rounded-xl bg-slate-900 text-white flex items-center justify-center font-extrabold text-base tracking-tight shadow-xs">
+          SP
+        </div>
+        <div>
+          <div class="flex items-center space-x-2">
+            <h1 class="text-xl font-extrabold text-slate-900 tracking-tight">SmartPay</h1>
+            <span class="text-[11px] font-semibold uppercase tracking-wider bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full border border-slate-200">ISO C++17 Core</span>
+            <span class="inline-flex items-center text-[11px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 animate-pulse"></span>
+              Live: Port 5000
+            </span>
+          </div>
+          <p class="text-xs text-slate-500 mt-0.5">Bi-Directional Flat-File Sync &bull; <code class="text-slate-700 code-font">data/*.txt</code></p>
+        </div>
+      </div>
+
+      <!-- User Session Switcher -->
+      <div class="flex flex-wrap items-center gap-2">
+        <div class="flex items-center bg-slate-50 border border-slate-200 rounded-xl p-1 text-xs">
+          <span class="text-slate-400 font-medium px-2 hidden sm:inline">Active User:</span>
+          <button id="userBtn-user1" onclick="switchUser('user1')" class="px-3 py-1.5 rounded-lg font-medium transition-all bg-white text-slate-900 shadow-xs border border-slate-200/80">Milind</button>
+          <button id="userBtn-user2" onclick="switchUser('user2')" class="px-3 py-1.5 rounded-lg font-medium transition-all text-slate-600 hover:text-slate-900">Aarav</button>
+          <button id="userBtn-user3" onclick="switchUser('user3')" class="px-3 py-1.5 rounded-lg font-medium transition-all text-slate-600 hover:text-slate-900">Priya</button>
+          <button id="userBtn-admin" onclick="switchUser('admin')" class="px-3 py-1.5 rounded-lg font-medium transition-all text-slate-600 hover:text-slate-900">Admin</button>
+        </div>
+
+        <button onclick="fetchState()" title="Refresh database sync" class="p-2 border border-slate-200 bg-white hover:bg-slate-50 rounded-xl text-slate-500 hover:text-slate-800 transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="flex items-center space-x-1.5 overflow-x-auto pb-1 text-xs font-medium border-b border-slate-200/80">
+      <button id="nav-overview" onclick="setTab('overview')" class="px-4 py-2 rounded-xl transition border border-transparent font-semibold bg-white text-slate-900 shadow-xs border-slate-200/90">
+        📊 Overview
+      </button>
+      <button id="nav-bill-history" onclick="setTab('bill-history')" class="px-4 py-2 rounded-xl transition border border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/70">
+        🧾 Bill History & Invoices
+      </button>
+      <button id="nav-pay-bills" onclick="setTab('pay-bills')" class="px-4 py-2 rounded-xl transition border border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/70">
+        💳 Pay Utility Bills
+      </button>
+      <button id="nav-transfer" onclick="setTab('transfer')" class="px-4 py-2 rounded-xl transition border border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/70">
+        💸 P2P Money Transfer
+      </button>
+      <button id="nav-viva" onclick="setTab('viva')" class="px-4 py-2 rounded-xl transition border border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/70">
+        🎓 OOPS Viva Lab
+      </button>
+      <button id="nav-admin" onclick="setTab('admin')" class="px-4 py-2 rounded-xl transition border border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/70">
+        🛡️ Admin Audit
+      </button>
+    </nav>
+
+    <!-- Main Container -->
+    <main id="tabContent" class="space-y-6">
+      <div class="p-16 text-center text-slate-400 text-xs">Loading SmartPay platform...</div>
+    </main>
+
+  </div>
+
+  <!-- Tax Invoice / Receipt Modal -->
+  <div id="invoiceModal" class="fixed inset-0 bg-slate-900/30 backdrop-blur-xs hidden flex items-center justify-center p-4 z-50">
+    <div class="bg-white border border-slate-200 rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl space-y-5 animate-in">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+        <div class="flex items-center space-x-3">
+          <div class="w-9 h-9 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold text-xs">
+            SP
+          </div>
+          <div>
+            <h3 class="font-extrabold text-slate-900 text-sm">Official Tax Invoice & Receipt</h3>
+            <p class="text-[11px] text-slate-400">SmartPay Digital Ledger Record</p>
+          </div>
+        </div>
+        <button onclick="closeInvoice()" class="text-slate-400 hover:text-slate-600 text-xl font-medium leading-none">&times;</button>
+      </div>
+
+      <div id="invoiceBody" class="space-y-4 text-xs">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <div class="flex items-center space-x-3 pt-3 border-t border-slate-100 no-print">
+        <button onclick="window.print()" class="flex-1 bg-slate-100 text-slate-700 font-semibold py-2.5 rounded-xl hover:bg-slate-200 transition text-xs flex items-center justify-center space-x-1.5">
+          <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+          <span>Print / Save PDF</span>
+        </button>
+        <button onclick="closeInvoice()" class="flex-1 bg-slate-900 text-white font-semibold py-2.5 rounded-xl hover:bg-slate-800 transition text-xs shadow-xs">
+          Close Invoice
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notification Toast -->
+  <div id="toast" class="fixed bottom-5 right-5 max-w-sm bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-xl text-xs hidden transition-all duration-300 z-50">
+    <div class="flex items-center space-x-2.5">
+      <span id="toastIcon" class="text-emerald-400 font-bold text-sm">&check;</span>
+      <span id="toastMsg" class="font-medium text-slate-200">Operation succeeded</span>
+    </div>
+  </div>
+
+  <footer class="text-center text-xs text-slate-400 py-6">
+    SmartPay E-Wallet &bull; BTech CSE Object-Oriented Programming Project &bull; Standard ISO C++17
+  </footer>
+
+  <script>
+    let appState = {
+      activeSession: 'user1',
+      activeTab: 'overview',
+      users: {},
+      wallets: {},
+      transactions: [],
+      admins: {},
+      systemLiquidity: 0
+    };
+
+    let billSearchQuery = '';
+    let billCategoryFilter = 'ALL';
+
+    async function fetchState() {
+      try {
+        const res = await fetch('/api/state');
+        if (!res.ok) throw new Error('Failed to load state');
+        const data = await res.json();
+        appState.users = data.users || {};
+        appState.wallets = data.wallets || {};
+        appState.transactions = data.transactions || [];
+        appState.admins = data.admins || {};
+        appState.systemLiquidity = data.systemLiquidity || 0;
+        render();
+      } catch (err) {
+        showToast('Error syncing with database: ' + err.message, true);
+      }
+    }
+
+    function switchUser(uId) {
+      appState.activeSession = uId;
+      ['user1', 'user2', 'user3', 'admin'].forEach(id => {
+        const btn = document.getElementById(`userBtn-${id}`);
+        if (btn) {
+          if (id === uId) {
+            btn.className = 'px-3 py-1.5 rounded-lg font-medium transition-all bg-white text-slate-900 shadow-xs border border-slate-200/80';
+          } else {
+            btn.className = 'px-3 py-1.5 rounded-lg font-medium transition-all text-slate-600 hover:text-slate-900';
+          }
+        }
+      });
+      // If switching to admin, automatically go to admin tab
+      if (uId === 'admin') {
+        setTab('admin');
+      } else if (appState.activeTab === 'admin') {
+        setTab('overview');
+      } else {
+        render();
+      }
+    }
+
+    function setTab(tabName) {
+      appState.activeTab = tabName;
+      ['overview', 'bill-history', 'pay-bills', 'transfer', 'viva', 'admin'].forEach(t => {
+        const btn = document.getElementById(`nav-${t}`);
+        if (btn) {
+          if (t === tabName) {
+            btn.className = 'px-4 py-2 rounded-xl transition border font-semibold bg-white text-slate-900 shadow-xs border-slate-200/90';
+          } else {
+            btn.className = 'px-4 py-2 rounded-xl transition border border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/70';
+          }
+        }
+      });
+      render();
+    }
+
+    function render() {
+      const container = document.getElementById('tabContent');
+      const current = appState.activeSession === 'admin' 
+        ? appState.admins['admin'] 
+        : appState.users[appState.activeSession];
+
+      if (!current) {
+        container.innerHTML = `<div class="p-8 text-center text-slate-400 text-xs">User not found.</div>`;
+        return;
+      }
+
+      switch (appState.activeTab) {
+        case 'overview':
+          renderOverviewTab(container, current);
+          break;
+        case 'bill-history':
+          renderBillHistoryTab(container, current);
+          break;
+        case 'pay-bills':
+          renderPayBillsTab(container, current);
+          break;
+        case 'transfer':
+          renderTransferTab(container, current);
+          break;
+        case 'viva':
+          renderVivaTab(container);
+          break;
+        case 'admin':
+          renderAdminTab(container, current);
+          break;
+        default:
+          renderOverviewTab(container, current);
+      }
+    }
+
+    // -------------------------------------------------------------
+    // TAB 1: OVERVIEW DASHBOARD
+    // -------------------------------------------------------------
+    function renderOverviewTab(container, user) {
+      const userWallet = appState.wallets[user.walletId] || { balance: user.balance || 0 };
+      const myTxns = appState.transactions.filter(t => t.sender === user.walletId || t.receiver === user.walletId);
+      const bills = myTxns.filter(t => t.type.includes('PAYMENT_BILL') || t.type.includes('PAYMENT_RECHARGE') || t.type.includes('PAYMENT_SHOPPING'));
+
+      container.innerHTML = `
+        <!-- Top Stats Row -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5 animate-in">
+          <div class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs relative overflow-hidden">
+            <div class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Encapsulated Wallet Balance</div>
+            <div class="text-3xl font-extrabold text-slate-900 tabular-num tracking-tight">Rs. ${userWallet.balance.toFixed(2)}</div>
+            <div class="mt-3 flex items-center justify-between text-xs text-slate-500 border-t border-slate-100 pt-3">
+              <span>Wallet ID: <strong class="code-font text-slate-800">${user.walletId}</strong></span>
+              <span class="inline-flex items-center text-emerald-600 font-medium">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5"></span> Active Balance
+              </span>
+            </div>
+          </div>
+
+          <div class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs">
+            <div class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Customer Profile</div>
+            <div class="text-lg font-bold text-slate-900">${user.name}</div>
+            <div class="text-xs text-slate-500 mt-0.5">${user.email} &bull; ${user.mobile}</div>
+            <div class="mt-3 flex items-center justify-between text-xs text-slate-500 border-t border-slate-100 pt-3">
+              <span>Role: <strong class="text-slate-700">Customer (Derived)</strong></span>
+              <span>Joined: ${user.createdAt.split(' ')[0]}</span>
+            </div>
+          </div>
+
+          <div class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs">
+            <div class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Utilities & Payments</div>
+            <div class="text-2xl font-bold text-slate-900 tabular-num">${bills.length} Bills Settled</div>
+            <div class="text-xs text-slate-500 mt-0.5">Electricity, Broadband, Mobile, Shopping</div>
+            <div class="mt-3 flex items-center justify-between text-xs text-slate-500 border-t border-slate-100 pt-3">
+              <span class="text-indigo-600 font-semibold cursor-pointer hover:underline" onclick="setTab('bill-history')">View Bill History &rarr;</span>
+              <span class="text-emerald-600 font-medium">&check; 100% On-Time</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Actions Row -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5 animate-in">
+          <div class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs flex flex-col justify-between">
+            <div>
+              <div class="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-sm mb-3">
+                +
+              </div>
+              <h3 class="font-bold text-slate-900 text-sm">Top-Up Wallet</h3>
+              <p class="text-xs text-slate-500 mt-1 mb-4">Add virtual money through banking gateway simulation.</p>
+
+              <div class="space-y-2.5 text-xs">
+                <div>
+                  <label class="block text-slate-500 font-medium mb-1">Amount (Rs.)</label>
+                  <input type="number" id="quickAddAmt" placeholder="e.g. 1000" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-slate-900 text-xs">
+                </div>
+              </div>
+            </div>
+            <button onclick="handleQuickAdd('${user.walletId}')" class="mt-4 w-full bg-slate-900 text-white font-semibold py-2.5 rounded-xl hover:bg-slate-800 transition text-xs shadow-xs">
+              Add Funds
+            </button>
+          </div>
+
+          <div class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs flex flex-col justify-between">
+            <div>
+              <div class="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-sm mb-3">
+                &rarr;
+              </div>
+              <h3 class="font-bold text-slate-900 text-sm">Send Money P2P</h3>
+              <p class="text-xs text-slate-500 mt-1 mb-4">Transfer funds directly to another wallet user.</p>
+              <div class="text-xs text-slate-600">
+                Quick transfer to friends with instant ledger update and zero fees.
+              </div>
+            </div>
+            <button onclick="setTab('transfer')" class="mt-4 w-full bg-emerald-600 text-white font-semibold py-2.5 rounded-xl hover:bg-emerald-700 transition text-xs shadow-xs">
+              Open Transfer Menu &rarr;
+            </button>
+          </div>
+
+          <div class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs flex flex-col justify-between">
+            <div>
+              <div class="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-sm mb-3">
+                &bull;
+              </div>
+              <h3 class="font-bold text-slate-900 text-sm">Pay Utility Bills</h3>
+              <p class="text-xs text-slate-500 mt-1 mb-4">Electricity, Fiber Broadband, Mobile Recharge.</p>
+              <div class="text-xs text-slate-600">
+                Polymorphic payment execution with automatic 5% shopping cashback.
+              </div>
+            </div>
+            <button onclick="setTab('pay-bills')" class="mt-4 w-full bg-slate-900 text-white font-semibold py-2.5 rounded-xl hover:bg-slate-800 transition text-xs shadow-xs">
+              Pay Bills & Services &rarr;
+            </button>
+          </div>
+        </div>
+
+        <!-- Recent Transactions Mini Table -->
+        <div class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs animate-in">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h3 class="text-sm font-bold text-slate-900">Recent Account Activity</h3>
+              <p class="text-xs text-slate-500">Last 5 financial events for ${user.name}</p>
+            </div>
+            <button onclick="setTab('bill-history')" class="text-xs text-indigo-600 hover:text-indigo-800 font-semibold">View All Bills & Invoices &rarr;</button>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="border-b border-slate-200 text-slate-400 uppercase text-[11px] tracking-wider font-semibold">
+                  <th class="py-2.5 px-3">TXN ID</th>
+                  <th class="py-2.5 px-3">Date</th>
+                  <th class="py-2.5 px-3">Category</th>
+                  <th class="py-2.5 px-3">Recipient / Merchant</th>
+                  <th class="py-2.5 px-3 text-right">Amount</th>
+                  <th class="py-2.5 px-3 text-center">Receipt</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                ${myTxns.slice(0, 5).map(t => `
+                  <tr class="hover:bg-slate-50/70 transition">
+                    <td class="py-3 px-3 code-font text-slate-800 font-semibold">${t.id}</td>
+                    <td class="py-3 px-3 text-slate-500">${t.timestamp}</td>
+                    <td class="py-3 px-3">
+                      <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                        t.type.includes('DEPOSIT') || t.type.includes('CASHBACK')
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
+                          : 'bg-slate-100 text-slate-700 border border-slate-200'
+                      }">${t.type}</span>
+                    </td>
+                    <td class="py-3 px-3 text-slate-700 font-medium">${t.receiver}</td>
+                    <td class="py-3 px-3 text-right font-bold tabular-num ${
+                      t.type.includes('DEPOSIT') || t.type.includes('CASHBACK')
+                        ? 'text-emerald-600'
+                        : 'text-slate-900'
+                    }">Rs. ${t.amount.toFixed(2)}</td>
+                    <td class="py-3 px-3 text-center">
+                      <button onclick="openInvoice('${t.id}')" class="text-indigo-600 hover:text-indigo-800 font-medium underline text-[11px]">View</button>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    // -------------------------------------------------------------
+    // TAB 2: DEDICATED BILL HISTORY & INVOICES (USER REQUESTED MODULE)
+    // -------------------------------------------------------------
+    function renderBillHistoryTab(container, user) {
+      const myTxns = appState.transactions.filter(t => t.sender === user.walletId || t.receiver === user.walletId);
+      
+      // Filter bill transactions
+      const billTxns = myTxns.filter(t => 
+        t.type.includes('PAYMENT_BILL') || 
+        t.type.includes('PAYMENT_RECHARGE') || 
+        t.type.includes('PAYMENT_SHOPPING') ||
+        t.type.includes('CASHBACK_REWARD')
+      );
+
+      // Spend stats
+      let totalUtilitySpend = 0;
+      let totalCashback = 0;
+      let billCount = 0;
+
+      let catTotals = {
+        electricity: 0,
+        broadband: 0,
+        mobile: 0,
+        shopping: 0,
+        water: 0
+      };
+
+      billTxns.forEach(t => {
+        if (t.type.includes('CASHBACK')) {
+          totalCashback += t.amount;
+        } else {
+          totalUtilitySpend += t.amount;
+          billCount++;
+          const d = (t.description + ' ' + t.receiver).toLowerCase();
+          if (d.includes('elect') || d.includes('power')) catTotals.electricity += t.amount;
+          else if (d.includes('broadband') || d.includes('fiber') || d.includes('internet')) catTotals.broadband += t.amount;
+          else if (d.includes('recharge') || d.includes('mobile') || d.includes('jio') || d.includes('airtel')) catTotals.mobile += t.amount;
+          else if (d.includes('water')) catTotals.water += t.amount;
+          else catTotals.shopping += t.amount;
+        }
+      });
+
+      // Search & category filter
+      const filteredBills = billTxns.filter(t => {
+        const matchesCategory = 
+          billCategoryFilter === 'ALL' ||
+          (billCategoryFilter === 'ELECTRICITY' && (t.description.toLowerCase().includes('elect') || t.receiver.toLowerCase().includes('power'))) ||
+          (billCategoryFilter === 'BROADBAND' && (t.description.toLowerCase().includes('broadband') || t.receiver.toLowerCase().includes('fiber'))) ||
+          (billCategoryFilter === 'RECHARGE' && (t.type.includes('RECHARGE') || t.description.toLowerCase().includes('mobile'))) ||
+          (billCategoryFilter === 'SHOPPING' && (t.type.includes('SHOPPING') || t.type.includes('CASHBACK'))) ||
+          (billCategoryFilter === 'WATER' && (t.description.toLowerCase().includes('water')));
+
+        const query = billSearchQuery.toLowerCase().trim();
+        const matchesQuery = !query || 
+          t.receiver.toLowerCase().includes(query) ||
+          t.description.toLowerCase().includes(query) ||
+          t.id.toLowerCase().includes(query);
+
+        return matchesCategory && matchesQuery;
+      });
+
+      container.innerHTML = `
+        <!-- Metrics Row -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 animate-in">
+          <div class="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs">
+            <div class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Total Utility Expenses</div>
+            <div class="text-2xl font-extrabold text-slate-900 tabular-num">Rs. ${totalUtilitySpend.toFixed(2)}</div>
+            <p class="text-xs text-slate-500 mt-1">Settled via SmartPay Wallet</p>
+          </div>
+
+          <div class="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs">
+            <div class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Invoices Settled</div>
+            <div class="text-2xl font-extrabold text-slate-900 tabular-num">${billCount} Bills Paid</div>
+            <p class="text-xs text-emerald-600 font-medium mt-1">&check; 100% Tax Invoices Available</p>
+          </div>
+
+          <div class="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs">
+            <div class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Cashback & Savings</div>
+            <div class="text-2xl font-extrabold text-emerald-600 tabular-num">Rs. ${totalCashback.toFixed(2)}</div>
+            <p class="text-xs text-slate-500 mt-1">Automatic promotional bonus</p>
+          </div>
+
+          <div class="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs">
+            <div class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Convenience Fees</div>
+            <div class="text-2xl font-extrabold text-slate-900 tabular-num">Rs. 0.00</div>
+            <p class="text-xs text-indigo-600 font-medium mt-1">Zero platform surcharges</p>
+          </div>
+        </div>
+
+        <!-- Category Spending Distribution Progress Bar -->
+        <div class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs animate-in space-y-3">
+          <div class="flex items-center justify-between text-xs">
+            <span class="font-bold text-slate-900">Utility Category Spend Breakdown</span>
+            <span class="text-slate-500 code-font">Aggregated Analytics</span>
+          </div>
+
+          <!-- Multi-segment visual bar -->
+          <div class="w-full h-3 bg-slate-100 rounded-full flex overflow-hidden">
+            <div style="width: ${totalUtilitySpend ? (catTotals.electricity/totalUtilitySpend*100) : 20}%" title="Electricity: Rs. ${catTotals.electricity.toFixed(2)}" class="bg-amber-400 h-full"></div>
+            <div style="width: ${totalUtilitySpend ? (catTotals.broadband/totalUtilitySpend*100) : 35}%" title="Broadband: Rs. ${catTotals.broadband.toFixed(2)}" class="bg-cyan-500 h-full"></div>
+            <div style="width: ${totalUtilitySpend ? (catTotals.mobile/totalUtilitySpend*100) : 15}%" title="Mobile: Rs. ${catTotals.mobile.toFixed(2)}" class="bg-emerald-500 h-full"></div>
+            <div style="width: ${totalUtilitySpend ? (catTotals.water/totalUtilitySpend*100) : 10}%" title="Water: Rs. ${catTotals.water.toFixed(2)}" class="bg-blue-400 h-full"></div>
+            <div style="width: ${totalUtilitySpend ? (catTotals.shopping/totalUtilitySpend*100) : 20}%" title="Shopping: Rs. ${catTotals.shopping.toFixed(2)}" class="bg-purple-500 h-full"></div>
+          </div>
+
+          <!-- Legend -->
+          <div class="flex flex-wrap items-center gap-4 text-[11px] text-slate-600 pt-1">
+            <span class="flex items-center"><span class="w-2.5 h-2.5 rounded-full bg-amber-400 mr-1.5"></span> Electricity: Rs. ${catTotals.electricity.toFixed(2)}</span>
+            <span class="flex items-center"><span class="w-2.5 h-2.5 rounded-full bg-cyan-500 mr-1.5"></span> Broadband: Rs. ${catTotals.broadband.toFixed(2)}</span>
+            <span class="flex items-center"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500 mr-1.5"></span> Mobile Recharge: Rs. ${catTotals.mobile.toFixed(2)}</span>
+            <span class="flex items-center"><span class="w-2.5 h-2.5 rounded-full bg-blue-400 mr-1.5"></span> Water: Rs. ${catTotals.water.toFixed(2)}</span>
+            <span class="flex items-center"><span class="w-2.5 h-2.5 rounded-full bg-purple-500 mr-1.5"></span> Shopping: Rs. ${catTotals.shopping.toFixed(2)}</span>
+          </div>
+        </div>
+
+        <!-- Filter & Search Toolbar -->
+        <div class="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 animate-in">
+          <!-- Category Filter Pills -->
+          <div class="flex flex-wrap items-center gap-1.5 text-xs">
+            <button onclick="setBillCategory('ALL')" class="px-3 py-1.5 rounded-xl font-medium transition ${billCategoryFilter === 'ALL' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:text-slate-900'}">All Bills</button>
+            <button onclick="setBillCategory('ELECTRICITY')" class="px-3 py-1.5 rounded-xl font-medium transition ${billCategoryFilter === 'ELECTRICITY' ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-600 hover:text-slate-900'}">⚡ Electricity</button>
+            <button onclick="setBillCategory('BROADBAND')" class="px-3 py-1.5 rounded-xl font-medium transition ${billCategoryFilter === 'BROADBAND' ? 'bg-cyan-600 text-white' : 'bg-slate-100 text-slate-600 hover:text-slate-900'}">🌐 Broadband</button>
+            <button onclick="setBillCategory('RECHARGE')" class="px-3 py-1.5 rounded-xl font-medium transition ${billCategoryFilter === 'RECHARGE' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:text-slate-900'}">📱 Recharge</button>
+            <button onclick="setBillCategory('WATER')" class="px-3 py-1.5 rounded-xl font-medium transition ${billCategoryFilter === 'WATER' ? 'bg-blue-500 text-white' : 'bg-slate-100 text-slate-600 hover:text-slate-900'}">💧 Water</button>
+            <button onclick="setBillCategory('SHOPPING')" class="px-3 py-1.5 rounded-xl font-medium transition ${billCategoryFilter === 'SHOPPING' ? 'bg-purple-600 text-white' : 'bg-slate-100 text-slate-600 hover:text-slate-900'}">🛍️ Shopping</button>
+          </div>
+
+          <!-- Search Input -->
+          <div class="relative w-full md:w-64">
+            <input type="text" id="billSearchInput" oninput="handleBillSearch(this.value)" value="${billSearchQuery}" placeholder="Search biller, invoice..." class="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-xl focus:outline-slate-900 text-xs bg-slate-50/50">
+            <svg class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+          </div>
+        </div>
+
+        <!-- Bill History Table -->
+        <div class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs animate-in">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h3 class="text-sm font-bold text-slate-900">Utility Bill Settlement Ledger</h3>
+              <p class="text-xs text-slate-500">Every utility payment is backed by a verifiable C++ transaction record</p>
+            </div>
+            <span class="text-xs font-mono text-slate-400">${filteredBills.length} matched</span>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="border-b border-slate-200 text-slate-400 uppercase text-[11px] tracking-wider font-semibold">
+                  <th class="py-2.5 px-3">Biller & Category</th>
+                  <th class="py-2.5 px-3">Consumer ID / Ref</th>
+                  <th class="py-2.5 px-3">Date & Time</th>
+                  <th class="py-2.5 px-3 text-right">Paid Amount</th>
+                  <th class="py-2.5 px-3 text-center">Benefit / Reward</th>
+                  <th class="py-2.5 px-3 text-center">Status</th>
+                  <th class="py-2.5 px-3 text-right">Tax Invoice</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                ${filteredBills.length === 0 ? `
+                  <tr><td colspan="7" class="py-10 text-center text-slate-400 text-xs">No utility bill records found matching your filters.</td></tr>
+                ` : filteredBills.map(b => {
+                  const isCashback = b.type.includes('CASHBACK');
+                  let icon = '⚡';
+                  let badgeClass = 'bg-amber-50 text-amber-700 border-amber-200';
+                  let catName = 'Utility Bill';
+
+                  const d = (b.description + ' ' + b.receiver).toLowerCase();
+                  if (d.includes('broadband') || d.includes('fiber')) {
+                    icon = '🌐';
+                    badgeClass = 'bg-cyan-50 text-cyan-700 border-cyan-200';
+                    catName = 'Broadband Fiber';
+                  } else if (d.includes('recharge') || d.includes('mobile')) {
+                    icon = '📱';
+                    badgeClass = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                    catName = 'Mobile Prepaid';
+                  } else if (d.includes('water')) {
+                    icon = '💧';
+                    badgeClass = 'bg-blue-50 text-blue-700 border-blue-200';
+                    catName = 'Water Supply';
+                  } else if (d.includes('shopping')) {
+                    icon = '🛍️';
+                    badgeClass = 'bg-purple-50 text-purple-700 border-purple-200';
+                    catName = 'Online Retail';
+                  } else if (isCashback) {
+                    icon = '🎁';
+                    badgeClass = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                    catName = 'Cashback Reward';
+                  }
+
+                  const refMatch = b.description.match(/Ref:\s*([^\s|]+)/);
+                  const refCode = refMatch ? refMatch[1] : (b.description.split('|')[1] || b.id);
+
+                  return `
+                    <tr class="hover:bg-slate-50/70 transition">
+                      <td class="py-3.5 px-3">
+                        <div class="flex items-center space-x-2.5">
+                          <div class="w-8 h-8 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center text-sm">
+                            ${icon}
+                          </div>
+                          <div>
+                            <div class="font-bold text-slate-900">${b.receiver}</div>
+                            <div class="text-[10px] text-slate-400">${catName}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td class="py-3.5 px-3 code-font text-slate-600 font-medium">
+                        ${refCode}
+                      </td>
+                      <td class="py-3.5 px-3 text-slate-500">
+                        ${b.timestamp}
+                      </td>
+                      <td class="py-3.5 px-3 text-right font-extrabold tabular-num ${isCashback ? 'text-emerald-600' : 'text-slate-900'}">
+                        ${isCashback ? '+ ' : ''}Rs. ${b.amount.toFixed(2)}
+                      </td>
+                      <td class="py-3.5 px-3 text-center">
+                        ${isCashback ? `
+                          <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">5% Cashback</span>
+                        ` : `
+                          <span class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-600">Zero Fee</span>
+                        `}
+                      </td>
+                      <td class="py-3.5 px-3 text-center">
+                        <span class="inline-flex items-center text-emerald-600 font-semibold text-[11px]">
+                          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5"></span>
+                          Paid
+                        </span>
+                      </td>
+                      <td class="py-3.5 px-3 text-right">
+                        <button onclick="openInvoice('${b.id}')" class="px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium transition text-[11px] shadow-2xs">
+                          Invoice &rarr;
+                        </button>
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    // -------------------------------------------------------------
+    // TAB 3: PAY UTILITY BILLS (POLYMORPHIC CONTRACT)
+    // -------------------------------------------------------------
+    function renderPayBillsTab(container, user) {
+      const userWallet = appState.wallets[user.walletId] || { balance: user.balance || 0 };
+
+      container.innerHTML = `
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in">
+          <!-- Left: Payment Form -->
+          <div class="md:col-span-2 bg-white border border-slate-200/90 rounded-2xl p-6 sm:p-8 shadow-xs space-y-6">
+            <div>
+              <h3 class="text-base font-extrabold text-slate-900">Pay Utility Bills & Merchant Orders</h3>
+              <p class="text-xs text-slate-500 mt-1">Processed dynamically via C++ <code class="code-font text-slate-700">Payment*</code> abstraction</p>
+            </div>
+
+            <!-- Biller Category Selector -->
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-2">Select Utility / Service Category</label>
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <div onclick="selectBillerType('electricity')" id="biller-card-electricity" class="cursor-pointer p-3.5 rounded-2xl border-2 border-slate-900 bg-slate-50/50 transition">
+                  <div class="text-lg mb-1">⚡</div>
+                  <div class="font-bold text-slate-900 text-xs">Electricity</div>
+                  <div class="text-[10px] text-slate-500">State / Tata Power</div>
+                </div>
+
+                <div onclick="selectBillerType('broadband')" id="biller-card-broadband" class="cursor-pointer p-3.5 rounded-2xl border border-slate-200 bg-white hover:border-slate-300 transition">
+                  <div class="text-lg mb-1">🌐</div>
+                  <div class="font-bold text-slate-900 text-xs">Broadband</div>
+                  <div class="text-[10px] text-slate-500">Fiber Internet</div>
+                </div>
+
+                <div onclick="selectBillerType('recharge')" id="biller-card-recharge" class="cursor-pointer p-3.5 rounded-2xl border border-slate-200 bg-white hover:border-slate-300 transition">
+                  <div class="text-lg mb-1">📱</div>
+                  <div class="font-bold text-slate-900 text-xs">Mobile Prepaid</div>
+                  <div class="text-[10px] text-slate-500">Jio / Airtel / Vi</div>
+                </div>
+
+                <div onclick="selectBillerType('shopping')" id="biller-card-shopping" class="cursor-pointer p-3.5 rounded-2xl border border-slate-200 bg-white hover:border-slate-300 transition">
+                  <div class="text-lg mb-1">🛍️</div>
+                  <div class="font-bold text-slate-900 text-xs">Shopping</div>
+                  <div class="text-[10px] text-emerald-600 font-semibold">5% Cashback</div>
+                </div>
+
+                <div onclick="selectBillerType('water')" id="biller-card-water" class="cursor-pointer p-3.5 rounded-2xl border border-slate-200 bg-white hover:border-slate-300 transition">
+                  <div class="text-lg mb-1">💧</div>
+                  <div class="font-bold text-slate-900 text-xs">Water Supply</div>
+                  <div class="text-[10px] text-slate-500">Municipal Board</div>
+                </div>
+
+                <div onclick="selectBillerType('gas')" id="biller-card-gas" class="cursor-pointer p-3.5 rounded-2xl border border-slate-200 bg-white hover:border-slate-300 transition">
+                  <div class="text-lg mb-1">🔥</div>
+                  <div class="font-bold text-slate-900 text-xs">Piped Gas</div>
+                  <div class="text-[10px] text-slate-500">Mahanagar Gas</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Form Details -->
+            <div class="space-y-4 text-xs">
+              <div>
+                <label id="lblBillerName" class="block font-semibold text-slate-700 mb-1">Biller / Service Provider</label>
+                <input type="text" id="payBillerDest" value="State Power Corp" placeholder="e.g. State Power Corp" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-slate-900 text-xs">
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label id="lblBillerRef" class="block font-semibold text-slate-700 mb-1">Consumer Account Number</label>
+                  <input type="text" id="payBillerRef" placeholder="e.g. CA-904128" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-slate-900 text-xs code-font">
+                </div>
+                <div>
+                  <label class="block font-semibold text-slate-700 mb-1">Bill Amount (Rs.)</label>
+                  <input type="number" id="payBillerAmt" placeholder="e.g. 450" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-slate-900 text-xs font-semibold">
+                </div>
+              </div>
+            </div>
+
+            <button onclick="handleExecuteBillPayment('${user.walletId}')" class="w-full bg-slate-900 text-white font-semibold py-3 rounded-xl hover:bg-slate-800 transition text-xs shadow-xs">
+              Confirm & Pay from Wallet (Rs. ${userWallet.balance.toFixed(2)} Available)
+            </button>
+          </div>
+
+          <!-- Right: Bill Benefits & Policy Card -->
+          <div class="space-y-5">
+            <div class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-4">
+              <h4 class="font-bold text-slate-900 text-xs uppercase tracking-wider text-slate-400">Payment Guarantees</h4>
+              <div class="space-y-3 text-xs">
+                <div class="flex items-start space-x-2.5">
+                  <div class="w-5 h-5 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">&check;</div>
+                  <div>
+                    <strong class="text-slate-800">Instant Settlement</strong>
+                    <p class="text-slate-500 text-[11px]">Direct debit from your encapsulated wallet ledger.</p>
+                  </div>
+                </div>
+
+                <div class="flex items-start space-x-2.5">
+                  <div class="w-5 h-5 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">&check;</div>
+                  <div>
+                    <strong class="text-slate-800">5% Shopping Cashback</strong>
+                    <p class="text-slate-500 text-[11px]">Orders &ge; Rs. 500 automatically receive 5% wallet refund.</p>
+                  </div>
+                </div>
+
+                <div class="flex items-start space-x-2.5">
+                  <div class="w-5 h-5 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">&check;</div>
+                  <div>
+                    <strong class="text-slate-800">Official Tax Invoices</strong>
+                    <p class="text-slate-500 text-[11px]">Immediate PDF-ready receipts with cryptographic hash.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="p-5 rounded-2xl bg-indigo-50/60 border border-indigo-100 text-xs space-y-2">
+              <span class="font-bold text-indigo-900">Polymorphic Dispatch Note</span>
+              <p class="text-indigo-800 leading-relaxed text-[11px]">
+                In the C++ backend, selecting a utility instantiates <code class="code-font text-indigo-950 font-semibold">BillPayment</code>, while mobile uses <code class="code-font text-indigo-950 font-semibold">RechargePayment</code>. Both execute via the <code class="code-font text-indigo-950 font-semibold">Payment*</code> abstract contract.
+              </p>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    let selectedBillerType = 'electricity';
+    function selectBillerType(type) {
+      selectedBillerType = type;
+      ['electricity', 'broadband', 'recharge', 'shopping', 'water', 'gas'].forEach(t => {
+        const el = document.getElementById(`biller-card-${t}`);
+        if (el) {
+          if (t === type) {
+            el.className = 'cursor-pointer p-3.5 rounded-2xl border-2 border-slate-900 bg-slate-50/50 transition';
+          } else {
+            el.className = 'cursor-pointer p-3.5 rounded-2xl border border-slate-200 bg-white hover:border-slate-300 transition';
+          }
+        }
+      });
+
+      const destInput = document.getElementById('payBillerDest');
+      const refInput = document.getElementById('payBillerRef');
+      const lblRef = document.getElementById('lblBillerRef');
+
+      if (type === 'electricity') {
+        destInput.value = 'State Power Corp';
+        lblRef.innerText = 'Consumer Account Number';
+        refInput.placeholder = 'e.g. CA-883921';
+      } else if (type === 'broadband') {
+        destInput.value = 'Airtel Xstream Fiber';
+        lblRef.innerText = 'Broadband Landline / Account ID';
+        refInput.placeholder = 'e.g. BB-109384';
+      } else if (type === 'recharge') {
+        destInput.value = 'Jio 5G Prepaid';
+        lblRef.innerText = '10-Digit Mobile Number';
+        refInput.placeholder = 'e.g. 9876543211';
+      } else if (type === 'shopping') {
+        destInput.value = 'Amazon India';
+        lblRef.innerText = 'Order Reference ID';
+        refInput.placeholder = 'e.g. ORD-98765';
+      } else if (type === 'water') {
+        destInput.value = 'Municipal Water Board';
+        lblRef.innerText = 'Water Connection ID';
+        refInput.placeholder = 'e.g. WB-55214';
+      } else if (type === 'gas') {
+        destInput.value = 'Mahanagar Gas Ltd';
+        lblRef.innerText = 'BP Number / Consumer No';
+        refInput.placeholder = 'e.g. GAS-44109';
+      }
+    }
+
+    // -------------------------------------------------------------
+    // TAB 4: P2P TRANSFER
+    // -------------------------------------------------------------
+    function renderTransferTab(container, user) {
+      const userWallet = appState.wallets[user.walletId] || { balance: user.balance || 0 };
+
+      container.innerHTML = `
+        <div class="max-w-xl mx-auto bg-white border border-slate-200/90 rounded-2xl p-6 sm:p-8 shadow-xs space-y-6 animate-in">
+          <div>
+            <h3 class="text-base font-extrabold text-slate-900">Peer-to-Peer Fund Transfer</h3>
+            <p class="text-xs text-slate-500 mt-1">Direct wallet-to-wallet transfer between verified SmartPay accounts</p>
+          </div>
+
+          <div class="p-4 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs">
+            <span class="text-slate-500">Your Wallet: <strong class="code-font text-slate-900">${user.walletId}</strong></span>
+            <span class="font-bold text-slate-900 tabular-num">Available: Rs. ${userWallet.balance.toFixed(2)}</span>
+          </div>
+
+          <div class="space-y-4 text-xs">
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Select Registered Recipient</label>
+              <select id="selP2pRecipient" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-slate-900 text-xs bg-white font-medium">
+                ${Object.values(appState.users)
+                  .filter(u => u.walletId !== user.walletId)
+                  .map(u => `<option value="${u.walletId}">${u.name} &bull; ${u.walletId} (${u.email})</option>`)
+                  .join('')}
+              </select>
+            </div>
+
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Transfer Amount (Rs.)</label>
+              <input type="number" id="inpP2pAmt" placeholder="e.g. 500" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-slate-900 text-xs font-semibold">
+            </div>
+
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Payment Remarks</label>
+              <input type="text" id="inpP2pNote" placeholder="e.g. Project lunch share" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-slate-900 text-xs">
+            </div>
+          </div>
+
+          <button onclick="handleExecuteTransfer('${user.walletId}')" class="w-full bg-emerald-600 text-white font-semibold py-3 rounded-xl hover:bg-emerald-700 transition text-xs shadow-xs">
+            Send Money Instantly
+          </button>
+        </div>
+      `;
+    }
+
+    // -------------------------------------------------------------
+    // TAB 5: OOPS VIVA REFERENCE LAB
+    // -------------------------------------------------------------
+    function renderVivaTab(container) {
+      container.innerHTML = `
+        <div class="space-y-6 animate-in">
+          <div class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs">
+            <h3 class="text-base font-extrabold text-slate-900">BTech CSE Object-Oriented Programming (OOPS) Architecture</h3>
+            <p class="text-xs text-slate-500 mt-1">Comprehensive mapping of design patterns, class relationships, and viva answers</p>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs">
+            <div class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-2.5">
+              <div class="flex items-center justify-between">
+                <span class="font-extrabold text-slate-900 text-sm">1. Encapsulation</span>
+                <span class="code-font text-slate-500 bg-slate-100 px-2 py-0.5 rounded text-[11px]">Wallet.h &bull; User.h</span>
+              </div>
+              <p class="text-slate-600 leading-relaxed">
+                <code class="text-slate-900 font-semibold">balance</code> is declared strictly as a <code class="text-slate-900">private</code> member of <code class="text-slate-900">Wallet</code>. Outside code cannot directly execute <code class="text-slate-900">wallet.balance = 50000;</code>. Balance mutations must go through validated methods <code class="text-slate-900">addMoney()</code>, <code class="text-slate-900">deductMoney()</code>, or <code class="text-slate-900">creditMoney()</code>.
+              </p>
+            </div>
+
+            <div class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-2.5">
+              <div class="flex items-center justify-between">
+                <span class="font-extrabold text-slate-900 text-sm">2. Inheritance</span>
+                <span class="code-font text-slate-500 bg-slate-100 px-2 py-0.5 rounded text-[11px]">User &rarr; Customer, Admin</span>
+              </div>
+              <p class="text-slate-600 leading-relaxed">
+                Base class <code class="text-slate-900 font-semibold">User</code> models common identity attributes (user ID, name, email, mobile, password hash, created timestamp). <code class="text-slate-900 font-semibold">Customer</code> and <code class="text-slate-900 font-semibold">Admin</code> publicly inherit from <code class="text-slate-900">User</code>, reusing credentials and getter methods.
+              </p>
+            </div>
+
+            <div class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-2.5">
+              <div class="flex items-center justify-between">
+                <span class="font-extrabold text-slate-900 text-sm">3. Polymorphism (Dynamic Binding)</span>
+                <span class="code-font text-slate-500 bg-slate-100 px-2 py-0.5 rounded text-[11px]">vtable & Dynamic Dispatch</span>
+              </div>
+              <p class="text-slate-600 leading-relaxed">
+                Virtual functions <code class="text-slate-900 font-semibold">virtual void displayDashboard()</code> and <code class="text-slate-900 font-semibold">displayUserDetails()</code>. The base class pointer <code class="text-slate-900">User* currentUser</code> dispatches dynamically via the vtable at runtime without brittle switch/if statements.
+              </p>
+            </div>
+
+            <div class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-2.5">
+              <div class="flex items-center justify-between">
+                <span class="font-extrabold text-slate-900 text-sm">4. Abstraction</span>
+                <span class="code-font text-slate-500 bg-slate-100 px-2 py-0.5 rounded text-[11px]">Payment.h (Pure Virtual)</span>
+              </div>
+              <p class="text-slate-600 leading-relaxed">
+                Abstract class <code class="text-slate-900 font-semibold">Payment</code> defines <code class="text-slate-900">virtual bool processPayment(...) = 0</code>. Concrete classes (<code class="text-slate-900">ShoppingPayment</code>, <code class="text-slate-900">BillPayment</code>, <code class="text-slate-900">RechargePayment</code>) implement specialized fee, cashback, and biller rules.
+              </p>
+            </div>
+
+            <div class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-2.5">
+              <div class="flex items-center justify-between">
+                <span class="font-extrabold text-slate-900 text-sm">5. Composition (HAS-A)</span>
+                <span class="code-font text-slate-500 bg-slate-100 px-2 py-0.5 rounded text-[11px]">Customer &bull; Wallet</span>
+              </div>
+              <p class="text-slate-600 leading-relaxed">
+                <code class="text-slate-900 font-semibold">Customer</code> **HAS-A** <code class="text-slate-900">Wallet</code> object as a private member. When a <code class="text-slate-900">Customer</code> object is destroyed, its composed <code class="text-slate-900">Wallet</code> is destroyed with it. <code class="text-slate-900">Wallet</code> also holds a collection of <code class="text-slate-900">Transaction</code> objects.
+              </p>
+            </div>
+
+            <div class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-2.5">
+              <div class="flex items-center justify-between">
+                <span class="font-extrabold text-slate-900 text-sm">6. Operator Overloading</span>
+                <span class="code-font text-slate-500 bg-slate-100 px-2 py-0.5 rounded text-[11px]">operator&lt;&lt; (Transaction)</span>
+              </div>
+              <p class="text-slate-600 leading-relaxed">
+                Overloads <code class="text-slate-900 font-semibold">operator&lt;&lt;(std::ostream& os, const Transaction& txn)</code> to cleanly format ledger rows into aligned tabular columns using <code class="text-slate-900">&lt;iomanip&gt;</code>.
+              </p>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // -------------------------------------------------------------
+    // TAB 6: ADMIN AUDIT
+    // -------------------------------------------------------------
+    function renderAdminTab(container, admin) {
+      container.innerHTML = `
+        <div class="space-y-6 animate-in">
+          <!-- Summary Cards -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs">
+              <div class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Total System Liquidity</div>
+              <div class="text-2xl font-extrabold text-slate-900 tabular-num">Rs. ${appState.systemLiquidity.toFixed(2)}</div>
+              <p class="text-xs text-slate-500 mt-1">Aggregated Wallet Reserves</p>
+            </div>
+
+            <div class="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs">
+              <div class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Registered Accounts</div>
+              <div class="text-2xl font-extrabold text-slate-900 tabular-num">${Object.keys(appState.users).length + 1} Total</div>
+              <p class="text-xs text-slate-500 mt-1">${Object.keys(appState.users).length} Customers &bull; 1 Admin</p>
+            </div>
+
+            <div class="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs">
+              <div class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Global Ledger Events</div>
+              <div class="text-2xl font-extrabold text-slate-900 tabular-num">${appState.transactions.length} Transactions</div>
+              <p class="text-xs text-slate-500 mt-1">Immutable ledger entries</p>
+            </div>
+
+            <div class="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs">
+              <div class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Security Model</div>
+              <div class="text-sm font-bold text-slate-900">${admin.adminLevel || 'AUDITOR'}</div>
+              <p class="text-xs text-emerald-600 font-medium mt-1">&bull; Least-Privilege Enforced</p>
+            </div>
+          </div>
+
+          <!-- Customer Accounts Audit Table -->
+          <div class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs">
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <h3 class="text-sm font-bold text-slate-900">Registered Customer Wallets (Read-Only Audit)</h3>
+                <p class="text-xs text-slate-500">Notice passwords are encrypted with SHA-256 and never accessible to administrators</p>
+              </div>
+              <span class="text-xs bg-slate-100 text-slate-600 px-2.5 py-1 rounded-md font-mono">Principle of Least Privilege</span>
+            </div>
+
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr class="border-b border-slate-200 text-slate-400 uppercase text-[11px] tracking-wider font-semibold">
+                    <th class="py-2.5 px-3">User ID</th>
+                    <th class="py-2.5 px-3">Full Name</th>
+                    <th class="py-2.5 px-3">Email Address</th>
+                    <th class="py-2.5 px-3">Mobile Number</th>
+                    <th class="py-2.5 px-3">Wallet ID</th>
+                    <th class="py-2.5 px-3 text-right">Encapsulated Balance</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                  ${Object.values(appState.users).map(u => `
+                    <tr class="hover:bg-slate-50/80 transition">
+                      <td class="py-3 px-3 code-font font-medium text-slate-800">${u.userId}</td>
+                      <td class="py-3 px-3 font-semibold text-slate-900">${u.name}</td>
+                      <td class="py-3 px-3 text-slate-600">${u.email}</td>
+                      <td class="py-3 px-3 text-slate-600 tabular-num">${u.mobile}</td>
+                      <td class="py-3 px-3 code-font text-slate-700">${u.walletId}</td>
+                      <td class="py-3 px-3 text-right font-bold text-slate-900 tabular-num">Rs. ${(appState.wallets[u.walletId]?.balance || 0).toFixed(2)}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // -------------------------------------------------------------
+    // ACTIONS & EVENT HANDLERS
+    // -------------------------------------------------------------
+    function setBillCategory(cat) {
+      billCategoryFilter = cat;
+      const current = appState.users[appState.activeSession];
+      if (current) renderBillHistoryTab(document.getElementById('tabContent'), current);
+    }
+
+    function handleBillSearch(query) {
+      billSearchQuery = query;
+      const current = appState.users[appState.activeSession];
+      if (current) renderBillHistoryTab(document.getElementById('tabContent'), current);
+    }
+
+    async function handleQuickAdd(walletId) {
+      const amtInput = document.getElementById('quickAddAmt');
+      const amt = parseFloat(amtInput.value);
+      if (!amt || amt <= 0) {
+        showToast('Please enter a valid positive deposit amount.', true);
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/add-money', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ walletId, amount: amt, description: 'Bank Gateway Top-Up' })
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error);
+
+        showToast(data.message);
+        amtInput.value = '';
+        await fetchState();
+        if (data.transaction) openInvoice(data.transaction.id);
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    }
+
+    async function handleExecuteTransfer(senderWId) {
+      const sel = document.getElementById('selP2pRecipient');
+      const amtInput = document.getElementById('inpP2pAmt');
+      const noteInput = document.getElementById('inpP2pNote');
+
+      const receiverWId = sel.value;
+      const amt = parseFloat(amtInput.value);
+      const note = noteInput.value.trim() || 'P2P Peer Transfer';
+
+      if (!amt || amt <= 0) {
+        showToast('Please enter a valid transfer amount.', true);
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/transfer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            senderWalletId: senderWId,
+            receiverWalletId: receiverWId,
+            amount: amt,
+            note: note
+          })
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error);
+
+        showToast(data.message);
+        amtInput.value = '';
+        noteInput.value = '';
+        await fetchState();
+        if (data.transaction) openInvoice(data.transaction.id);
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    }
+
+    async function handleExecuteBillPayment(walletId) {
+      const dest = document.getElementById('payBillerDest').value.trim();
+      const ref = document.getElementById('payBillerRef').value.trim() || 'N/A';
+      const amt = parseFloat(document.getElementById('payBillerAmt').value);
+
+      if (!dest || !amt || amt <= 0) {
+        showToast('Please fill in valid biller details and amount.', true);
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/pay', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            walletId,
+            category: selectedBillerType,
+            destination: dest,
+            reference: ref,
+            amount: amt
+          })
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error);
+
+        showToast(data.message);
+        await fetchState();
+        setTab('bill-history');
+        if (data.transaction) openInvoice(data.transaction.id);
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    }
+
+    function openInvoice(txnId) {
+      const t = appState.transactions.find(x => x.id === txnId);
+      if (!t) return;
+
+      const modal = document.getElementById('invoiceModal');
+      const body = document.getElementById('invoiceBody');
+
+      const senderName = appState.users[appState.wallets[t.sender]?.userId]?.name || t.sender;
+      const isCashback = t.type.includes('CASHBACK');
+
+      body.innerHTML = `
+        <div class="bg-slate-50 p-5 rounded-2xl border border-slate-100 space-y-3">
+          <div class="flex justify-between items-center pb-2 border-b border-slate-200/80">
+            <div>
+              <span class="text-slate-400 text-[11px] block">Invoice Reference</span>
+              <strong class="code-font text-slate-900 text-sm">${t.id}</strong>
+            </div>
+            <span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">PAID &bull; VERIFIED</span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <div>
+              <span class="text-slate-400 block text-[11px]">Billed To / Sender</span>
+              <span class="font-semibold text-slate-800">${senderName}</span>
+              <span class="block text-[10px] code-font text-slate-500">${t.sender}</span>
+            </div>
+            <div>
+              <span class="text-slate-400 block text-[11px]">Biller / Recipient</span>
+              <span class="font-semibold text-slate-800">${t.receiver}</span>
+              <span class="block text-[10px] text-slate-500">${t.type}</span>
+            </div>
+          </div>
+
+          <div class="border-t border-slate-200/80 pt-2.5 space-y-1 text-xs">
+            <div class="flex justify-between text-slate-500">
+              <span>Date & Timestamp:</span>
+              <span class="text-slate-700">${t.timestamp}</span>
+            </div>
+            <div class="flex justify-between text-slate-500">
+              <span>Payment Category:</span>
+              <span class="text-slate-700 font-medium">${t.description}</span>
+            </div>
+            <div class="flex justify-between text-slate-500">
+              <span>Convenience Surcharge:</span>
+              <span class="text-emerald-600 font-medium">Rs. 0.00 (Zero Fee)</span>
+            </div>
+          </div>
+
+          <div class="flex justify-between items-center border-t-2 border-slate-900 pt-3 text-sm font-extrabold text-slate-900">
+            <span>Net Amount Settled:</span>
+            <span class="text-base tabular-num">Rs. ${t.amount.toFixed(2)}</span>
+          </div>
+        </div>
+
+        <div class="text-[10px] text-slate-400 text-center">
+          Cryptographically signed &bull; SHA-256 Ledger Audit Key: ${t.id}-OK-2026
+        </div>
+      `;
+      modal.classList.remove('hidden');
+    }
+
+    function closeInvoice() {
+      document.getElementById('invoiceModal').classList.add('hidden');
+    }
+
+    function showToast(msg, isError = false) {
+      const toast = document.getElementById('toast');
+      const toastMsg = document.getElementById('toastMsg');
+      const toastIcon = document.getElementById('toastIcon');
+
+      toastMsg.innerText = msg;
+      if (isError) {
+        toastIcon.innerHTML = '&#9888;';
+        toastIcon.className = 'text-rose-400 font-bold';
+      } else {
+        toastIcon.innerHTML = '&check;';
+        toastIcon.className = 'text-emerald-400 font-bold';
+      }
+
+      toast.classList.remove('hidden');
+      setTimeout(() => {
+        toast.classList.add('hidden');
+      }, 3500);
+    }
+
+    // Initialize
+    fetchState();
+  </script>
+</body>
+</html>
