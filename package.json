@@ -1,0 +1,21 @@
+{
+  "name": "smartpay",
+  "version": "1.0.0",
+  "description": "SmartPay – Menu-Driven E-Wallet Payment System in C++17 with OOPS Architecture, Persistent Flat-File Storage & Subtle Light-Mode Dashboard",
+  "scripts": {
+    "start": "python -u server.py",
+    "dev": "python -u server.py",
+    "build": "g++ -std=c++17 -Wall -Wextra -O2 main.cpp User.cpp Customer.cpp Admin.cpp Wallet.cpp Transaction.cpp Payment.cpp EWalletSystem.cpp -o smartpay_bin.exe",
+    "cpp": ".\\smartpay_bin.exe",
+    "open": "powershell Start-Process http://localhost:5000"
+  },
+  "keywords": [
+    "cpp",
+    "oops",
+    "e-wallet",
+    "fintech",
+    "btech-cse"
+  ],
+  "author": "Milind",
+  "license": "MIT"
+}
